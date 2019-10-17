@@ -18,9 +18,11 @@ func (d ProjectApiController) Init(g echoswagger.ApiGroup) {
 	g.GET("", d.GetAll).
 		AddParamQueryNested(SearchInput{}).
 		AddParamQuery("", "name", "go-api", true).
-		AddParamQuery("", "with_child", "true", false)
+		AddParamQuery("", "with_child", "true", false).
+		AddParamQuery("", "simple", "true", false)
 	g.GET("/:id", d.GetById).
-		AddParamPath("", "id", "1")
+		AddParamPath("", "id", "1").
+		AddParamQuery("", "with_child", "true", false)
 	g.POST("", d.Create).
 		AddParamBody(models.Project{}, "project", "new project", true)
 	g.PUT("/:id", d.Update).
@@ -31,6 +33,9 @@ func (d ProjectApiController) Init(g echoswagger.ApiGroup) {
 func (d ProjectApiController) GetAll(c echo.Context) error {
 	if len(c.QueryParam("name")) != 0 {
 		return d.GetByName(c)
+	}
+	if len(c.QueryParam("simple")) != 0 {
+		return d.GetAllSimple(c)
 	}
 	var v SearchInput
 	if err := c.Bind(&v); err != nil {
@@ -70,7 +75,13 @@ func (d ProjectApiController) GetById(c echo.Context) error {
 
 	return ReturnApiSucc(c, http.StatusOK, project)
 }
-
+func (d ProjectApiController) GetAllSimple(c echo.Context) error {
+	project, err := models.Project{}.GetAllSimple(c.Request().Context())
+	if err != nil {
+		return ReturnApiFail(c, http.StatusInternalServerError, err)
+	}
+	return ReturnApiSucc(c, http.StatusOK, project)
+}
 func (d ProjectApiController) GetByName(c echo.Context) error {
 	name := c.QueryParam("name")
 	has, project, err := models.Project{}.GetByName(c.Request().Context(), name)
@@ -185,6 +196,10 @@ func (d ProjectApiController) getWithChild(c echo.Context, project *models.Proje
 		}
 		d.loopGet(c, project, items)
 	}
+	if err := (ProjectOwner{}).Reload(c.Request().Context(),project); err != nil {
+		return http.StatusInternalServerError, err
+	}
+
 	return http.StatusOK, nil
 }
 
