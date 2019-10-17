@@ -19,9 +19,32 @@ type Project struct {
 	SubIds  []int      `json:"subIds" xorm:"varchar(255)"` //subIds
 	Setting SettingDto `json:"setting" xorm:"json"`
 
-	Children  []*Project `json:"children" xorm:"-"`
-	CreatedAt *time.Time `json:"createdAt" xorm:"created"`
-	UpdatedAt *time.Time `json:"updatedAt" xorm:"updated"`
+	CreatedAt *time.Time      `json:"createdAt" xorm:"created"`
+	UpdatedAt *time.Time      `json:"updatedAt" xorm:"updated"`
+	Children  []*Project      `json:"children" xorm:"-"`
+	DependsOn []string        `json:"dependsOn" xorm:"-"`
+	Owner     ProjectOwnerDto `json:"owner" xorm:"-"`
+}
+
+type ProjectOwnerDto struct {
+	IsKafka     bool
+	IsMysql     bool
+	IsSqlServer bool
+	IsRedis     bool
+	IsStream    bool
+
+	DbTypes       []string
+	ChildNames    []string
+	StreamNames   []string
+	EventProducer *Project
+	EventConsumer *Project
+	Databases     map[string][]DatabaseDto
+	ImageAccounts []ImageAccount
+}
+type DatabaseDto struct {
+	TenantName string
+	Namespace  string
+	DbName     string
 }
 
 type SettingDto struct {
