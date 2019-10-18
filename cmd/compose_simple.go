@@ -65,20 +65,20 @@ func (d ComposeSimple) ComposeYml(serviceName string, flag *Flag) error {
 	compose.SetPort()
 	serviceList := strings.Split(serviceName, ",")
 	if ContainString(serviceList, KAFKASERVER.String()) {
-		if err := CheckHost(ip); err != nil {
+		if err := CheckHost(ip, *flag.Prefix); err != nil {
 			return err
 		}
 	}
 	for _, name := range serviceList {
 		switch name {
 		case KAFKASERVER.String():
-			compose.setKafkaEland(viper, *flag.KafkaPort, ip, flag.RegistryCommon)
+			compose.setKafkaEland(viper, *flag.KafkaPort, ip, flag.RegistryCommon,*flag.Prefix)
 		case MYSQLSERVER.String():
-			compose.setMysql(viper, *flag.MysqlPort, flag.RegistryCommon)
+			compose.setMysql(viper, *flag.MysqlPort, flag.RegistryCommon,*flag.Prefix)
 		case SQLSERVERSERVER.String():
-			compose.setSqlServer(viper, *flag.SqlServerPort, flag.RegistryCommon)
+			compose.setSqlServer(viper, *flag.SqlServerPort, flag.RegistryCommon,*flag.Prefix)
 		case REDISSERVER.String():
-			compose.setRedis(viper, *flag.RedisPort, flag.RegistryCommon)
+			compose.setRedis(viper, *flag.RedisPort, flag.RegistryCommon,*flag.Prefix)
 		}
 	}
 	return compose.WriteYml(viper)

@@ -11,6 +11,10 @@ import (
 	"github.com/alecthomas/kingpin"
 )
 
+const (
+	PRETEST = "rtc-"
+)
+
 type Flag struct {
 	LocalSql *bool
 	Env      *string
@@ -23,6 +27,7 @@ type Flag struct {
 	RegistryCommon *string
 	HostIp         *string
 	JwtToken       *string
+	Prefix         *string
 
 	MysqlPort     *string
 	RedisPort     *string
@@ -62,6 +67,7 @@ func (d Flag) Init(version string) (isContinue bool, serviceName *string, flag *
 		}
 		flag.HostIp = d.getIp(flag.HostIp)
 		flag.JwtToken = d.getJwt(flag.JwtToken)
+		flag.Prefix = d.getPrefix(flag.Prefix)
 		if BoolPointCheck(flag.NoLog) == false {
 			log.Println("log init ...")
 			if err := d.initJobLog(serviceName, flag); err != nil {
@@ -202,6 +208,7 @@ func (d Flag) configureRunCommand(app *kingpin.Application) (serviceName *string
 	1.ip(default): auto get ip.
 	2.You can specify your host ip.`).String(),
 		JwtToken: run.Flag("jwt-token", "In order to access rtc-api you need to set the jwt-token, you can set the environment variable(JWT_TOKEN), or you can use this parameter.").String(),
+		Prefix:   run.Flag("prefix", "You can modify the prefix of the microserver's docker container name.").String(),
 
 		MysqlPort:     run.Flag("mysql-port", "You can change default mysql port.").Default(outPort.Mysql).String(),
 		RedisPort:     run.Flag("redis-port", "You can change default redis port.").Default(outPort.Redis).String(),
@@ -238,6 +245,13 @@ func (d Flag) getJwt(jwtToken *string) *string {
 		panic(errors.New("miss environment: JWT_TOKEN"))
 	}
 	return &token
+}
+func (d Flag) getPrefix(prefixFlag *string) *string {
+	if StringPointCheck(prefixFlag) {
+		return prefixFlag
+	}
+	prefix := PRETEST
+	return &prefix
 }
 
 func (d Flag) initJobLog(serviceName *string, flag *Flag) error {
