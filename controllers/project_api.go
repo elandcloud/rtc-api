@@ -20,7 +20,8 @@ func (d ProjectApiController) Init(g echoswagger.ApiGroup) {
 		AddParamQuery("", "name", "go-api", true).
 		AddParamQuery("", "with_child", "true", false)
 	g.GET("/:id", d.GetById).
-		AddParamPath("", "id", "1")
+		AddParamPath("", "id", "1").
+		AddParamQuery("", "with_child", "true", false)
 	g.POST("", d.Create).
 		AddParamBody(models.Project{}, "project", "new project", true)
 	g.PUT("/:id", d.Update).
@@ -185,6 +186,10 @@ func (d ProjectApiController) getWithChild(c echo.Context, project *models.Proje
 		}
 		d.loopGet(c, project, items)
 	}
+	if err := (ProjectOwner{}).Reload(c.Request().Context(),project); err != nil {
+		return http.StatusInternalServerError, err
+	}
+
 	return http.StatusOK, nil
 }
 
