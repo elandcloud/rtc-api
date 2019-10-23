@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"nomni/utils/api"
 	"rtc-api/models"
@@ -17,17 +18,19 @@ func (d ProjectApiController) Init(g echoswagger.ApiGroup) {
 	g.SetSecurity("Authorization")
 	g.GET("", d.GetAll).
 		AddParamQueryNested(SearchInput{}).
-		AddParamQuery("", "name", "go-api", true).
+		AddParamQuery("", "name", "go-api", false).
 		AddParamQuery("", "with_child", "true", false).
 		AddParamQuery("", "simple", "true", false)
 	g.GET("/:id", d.GetById).
 		AddParamPath("", "id", "1").
 		AddParamQuery("", "with_child", "true", false)
 	g.POST("", d.Create).
-		AddParamBody(models.Project{}, "project", "new project", true)
+		AddParamBody(ProjectDto{}, "project", "new project", true)
 	g.PUT("/:id", d.Update).
 		AddParamPath("", "id", "1").
-		AddParamBody(models.Project{}, "project", "update project", true)
+		AddParamBody(ProjectDto{}, "project", "update project", true)
+	g.DELETE("/:id", d.Delete).
+		AddParamPath("", "id", "14")
 }
 
 func (d ProjectApiController) GetAll(c echo.Context) error {
@@ -44,12 +47,18 @@ func (d ProjectApiController) GetAll(c echo.Context) error {
 	if v.MaxResultCount == 0 {
 		v.MaxResultCount = DefaultMaxResultCount
 	}
-	totalCount, items, err := models.Project{}.GetAll(c.Request().Context(), v.Sortby, v.Order, v.SkipCount, v.MaxResultCount)
+	totalCount, items, err := models.Project{}.GetAll(c.Request().Context(),
+		v.Sortby, v.Order, v.SkipCount, v.MaxResultCount, v.Like)
 	if err != nil {
 		return ReturnApiFail(c, http.StatusInternalServerError, err)
 	}
 	if len(items) == 0 {
 		return ReturnApiFail(c, http.StatusBadRequest, api.NotFoundError())
+	}
+	for k := range items {
+		if status, err := d.getWithChild(c, items[k]); err != nil {
+			return ReturnApiFail(c, status, err)
+		}
 	}
 	return ReturnApiSucc(c, http.StatusOK, api.ArrayResult{
 		TotalCount: totalCount,
@@ -57,6 +66,7 @@ func (d ProjectApiController) GetAll(c echo.Context) error {
 	})
 
 }
+
 func (d ProjectApiController) GetById(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -129,7 +139,7 @@ func (d ProjectApiController) Create(c echo.Context) error {
 	if err := c.Validate(v); err != nil {
 		return ReturnApiFail(c, http.StatusBadRequest, api.ParameterParsingError(err))
 	}
-	v.Name = d.GetName(v.TenantName, v.Namespace, v.Service)
+	v.Name = models.Project{}.GetName(v.TenantName, v.Namespace, v.Service)
 	has, _, err := models.Project{}.GetByName(c.Request().Context(), v.Name)
 	if err != nil {
 		return ReturnApiFail(c, http.StatusInternalServerError, err)
@@ -162,7 +172,7 @@ func (d ProjectApiController) Update(c echo.Context) error {
 		return ReturnApiFail(c, http.StatusBadRequest, api.ParameterParsingError(err))
 	}
 	v.Id = int(id)
-	v.Name = d.GetName(v.TenantName, v.Namespace, v.Service)
+	v.Name = models.Project{}.GetName(v.TenantName, v.Namespace, v.Service)
 	has, _, err := models.Project{}.GetById(c.Request().Context(), v.Id)
 	if err != nil {
 		return ReturnApiFail(c, http.StatusInternalServerError, err)
@@ -202,10 +212,33 @@ func (d ProjectApiController) getWithChild(c echo.Context, project *models.Proje
 
 	return http.StatusOK, nil
 }
-
-func (d ProjectApiController) GetName(tenantName, namespace, service string) string {
-	namespaceNew := models.Project{}.SetName(tenantName, namespace)
-	name := models.Project{}.SetName(service, namespaceNew)
-	return name
-
+func (d ProjectApiController) Delete(c echo.Context) error {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return ReturnApiFail(c, http.StatusBadRequest, api.InvalidParamError("id", c.Param("id"), err))
+	}
+	has, v, err := models.Project{}.GetById(c.Request().Context(), int(id))
+	if err != nil {
+		return ReturnApiFail(c, http.StatusInternalServerError, err)
+	}
+	if has == false {
+		return ReturnApiFail(c, http.StatusBadRequest, api.NotDeletedError())
+	}
+	ids, err := models.Project{}.GetParentIds(c.Request().Context(), int(id))
+	if err != nil {
+		return ReturnApiFail(c, http.StatusInternalServerError, err)
+	}
+	if len(ids) != 0 {
+		errd := fmt.Errorf("Delete failed, microservices %v depend on it", ids)
+		return ReturnApiFail(c, http.StatusBadRequest, errd)
+	}
+	affectedRow, err := models.Project{}.Delete(c.Request().Context(), int(id))
+	if err != nil {
+		return ReturnApiFail(c, http.StatusInternalServerError, err)
+	}
+	if affectedRow == int64(0) {
+		return ReturnApiFail(c, http.StatusBadRequest, api.NotDeletedError())
+	}
+	return ReturnApiSucc(c, http.StatusOK, v)
 }
