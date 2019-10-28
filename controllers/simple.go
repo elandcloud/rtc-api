@@ -64,7 +64,7 @@ type TenantApiController struct {
 func (d TenantApiController) Init(g echoswagger.ApiGroup) {
 	g.SetSecurity("Authorization")
 	g.GET("", d.GetAll)
-	g.GET("/:name/namespaces", d.GetNsByTenantName)
+	g.GET("/:name/namespaces", d.GetNsByTenantName).AddParamPath("", "name", "pangpang")
 }
 
 func (d TenantApiController) GetAll(c echo.Context) error {
