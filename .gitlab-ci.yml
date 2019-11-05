@@ -6,15 +6,23 @@ variables:
   LINUX_RTC: rtc-linux_amd64
   WINDOW_RTC: rtc-win64.exe
   MAC_RTC: rtc-darwin_amd64
-  GOTEST_ENV:  "-e JWT_SECRET=1234"
   RTC_ENV: " --docker-no-login --docker-mysql-port 3310 --prefix rtc-first-"
 include: 
   - project: 'open/gitlab-ci'
     file: '/templates/go.gitlab-ci.yml'
 stages:
+  - pre-build
   - build
   - test
   - release
+pre-build:
+  stage: pre-build
+  tags:
+    - golang-build
+  script:
+    - echo 'pre-build is ok'
+  only:
+    - tags
 release:
   stage: release
   tags:
