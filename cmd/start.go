@@ -44,6 +44,7 @@ func Start(version string) {
 		Error(err)
 		return
 	}
+	Info(getLogo())
+	Info("==> you can start testing now. \n 1.check health by `docker ps -a` \n 2.mysql account:root/1234")
 
-	Info("==> you can start testing now. check health by `docker ps -a`")
 }

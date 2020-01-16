@@ -53,7 +53,8 @@ func (d ComposeSimple) Start(serviceName string, flag *Flag) error {
 	if err := d.Up(dockercompose, *flag.ComposeName); err != nil {
 		return err
 	}
-	Info(`==> compose up!`)
+	Info(getLogo())
+	Info("==> compose up!. \n 1.check health by `docker ps -a` \n 2.mysql account:root/1234")
 	return nil
 }
 
