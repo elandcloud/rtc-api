@@ -50,7 +50,7 @@ func (d ComposeSimple) Start(serviceName string, flag *Flag) error {
 			return err
 		}
 	}
-	if err := d.Up(dockercompose); err != nil {
+	if err := d.Up(dockercompose, *flag.ComposeName); err != nil {
 		return err
 	}
 	Info(`==> compose up!`)
@@ -79,7 +79,7 @@ func (d ComposeSimple) ComposeYml(serviceName string, flag *Flag) error {
 		case MYSQLSERVER.String():
 			mysqlPorts := strings.Split(*flag.DockerMysqlPort, ",")
 			for i, mysqPort := range mysqlPorts {
-				prefix := fmt.Sprint(*flag.Prefix, i, "-")
+				prefix := fmt.Sprint(*flag.Prefix, i, "-", mysqPort, "-")
 				compose.setMysqlSimple(viper, mysqPort, flag.RegistryCommon, prefix)
 			}
 		case SQLSERVERSERVER.String():
@@ -104,8 +104,8 @@ func (d ComposeSimple) CheckAll(serviceName, dockercompose string, flag *Flag) e
 		case MYSQLSERVER.String():
 			mysqlPorts := strings.Split(*flag.DockerMysqlPort, ",")
 			for i, mysqPort := range mysqlPorts {
-				prefix := fmt.Sprint(*flag.Prefix, i, "-")
-				if err := compose.checkMysqlSimple(dockercompose, mysqPort, ip, prefix); err != nil {
+				prefix := fmt.Sprint(*flag.Prefix, i, "-", mysqPort, "-")
+				if err := compose.checkMysqlSimple(dockercompose, mysqPort, ip, prefix, *flag.ComposeName); err != nil {
 					return err
 				}
 			}
@@ -126,8 +126,8 @@ func (d ComposeSimple) Down(dockercompose string, flag *Flag) error {
 	return nil
 }
 
-func (d ComposeSimple) Up(dockercompose string) error {
-	if _, err := CmdRealtime("docker-compose", "-f", dockercompose, "up", "-d", "--no-recreate"); err != nil {
+func (d ComposeSimple) Up(dockercompose, composeName string) error {
+	if _, err := CmdRealtime("docker-compose", "-p", composeName, "-f", dockercompose, "up", "-d", "--no-recreate"); err != nil {
 		return err
 	}
 	return nil
