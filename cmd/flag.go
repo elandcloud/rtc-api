@@ -128,6 +128,7 @@ func (d Flag) configureDownCommand(app *kingpin.Application) {
 
 	var rmi *string
 	var v *bool
+	var err error
 	var remove *bool
 	var t *int
 	var dockerWorkDir *string
@@ -143,9 +144,14 @@ func (d Flag) configureDownCommand(app *kingpin.Application) {
 
 	Networks and volumes defined as 'external' are never removed.`).
 		Action(func(c *kingpin.ParseContext) error {
-			directory := TEMP_FILE
+			directory := ""
 			if StringPointCheck(dockerWorkDir) {
 				directory = *dockerWorkDir
+			} else {
+				directory, err = filepath.Abs("./" + TEMP_FILE)
+				if err != nil {
+					panic(err)
+				}
 			}
 			dockercompose := fmt.Sprintf("%v/docker-compose.yml", directory)
 			param := make([]string, 0)
@@ -162,7 +168,7 @@ func (d Flag) configureDownCommand(app *kingpin.Application) {
 			if IntPointCheck(t) {
 				param = append(param, "--timeout", fmt.Sprint(*t))
 			}
-			if _, err := CmdRealtime("docker-compose", param...); err != nil {
+			if _, err = CmdRealtime("docker-compose", param...); err != nil {
 				panic(err)
 			}
 			return nil
