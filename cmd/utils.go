@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"os/exec"
@@ -190,4 +191,14 @@ func CheckHost(ip, prefix string) (err error) {
 
 func AddQuote(name string) string {
 	return "\"" + name + "\""
+}
+
+func Shuffle(slice []string) {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for len(slice) > 0 {
+		n := len(slice)
+		randIndex := r.Intn(n)
+		slice[n-1], slice[randIndex] = slice[randIndex], slice[n-1]
+		slice = slice[:n-1]
+	}
 }
