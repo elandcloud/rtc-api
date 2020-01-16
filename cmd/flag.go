@@ -24,6 +24,7 @@ type Flag struct {
 	Prefix          *string
 	IntegrationTest *bool
 	DbNet           *string
+	ComposeName     *string
 
 	DockerNoLog   *bool
 	DockerNoLogin *bool
@@ -76,6 +77,7 @@ func (d Flag) Init(version string) (isContinue bool, serviceName *string, flag *
 		flag.DockerHostIp = d.getIp(flag.DockerHostIp)
 		flag.JwtToken = d.getJwt(flag.JwtToken)
 		flag.Prefix = d.getPrefix(flag.Prefix)
+		flag.ComposeName = d.getComposeName(flag.ComposeName)
 		if BoolPointCheck(flag.DockerNoLog) == false {
 			log.Println("log init ...")
 			if err := d.initJobLog(serviceName, flag); err != nil {
@@ -223,6 +225,8 @@ func (d Flag) configureRunCommand(app *kingpin.Application) (serviceName *string
 	2.local: load local database file.
 	3.tcp: load database file by tcp/ip.
 	4.http: load database file by http/ip.`).String(),
+		ComposeName: run.Flag("compose-name", `
+	1.Specify an alternate compose name.(default: temp)`).String(),
 
 		DockerNoLogin: run.Flag("docker-no-login", "You can ignore login step.").Bool(),
 		DockerNoPull:  run.Flag("docker-no-pull", "You can ignore pull images step.").Bool(),
@@ -277,6 +281,13 @@ func (d Flag) getPrefix(prefixFlag *string) *string {
 	}
 	prefix := PRETEST
 	return &prefix
+}
+func (d Flag) getComposeName(composeNameFlag *string) *string {
+	if StringPointCheck(composeNameFlag) {
+		return composeNameFlag
+	}
+	composeName := TEMP_FILE
+	return &composeName
 }
 
 func (d Flag) initJobLog(serviceName *string, flag *Flag) error {

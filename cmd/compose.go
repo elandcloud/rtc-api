@@ -538,9 +538,9 @@ func (d *Compose) dailKafka(port, ip string) (err error) {
 
 // simple
 
-func (d *Compose) checkMysqlSimple(dockercompose, port, ip, prefix string) error {
+func (d *Compose) checkMysqlSimple(dockercompose, port, ip, prefix,composeName string) error {
 	containerServer := d.getServiceServerSimple(MYSQL.String(), prefix)
-	if _, err := CmdRealtime("docker-compose", "-f", dockercompose, "up", "-d", "--no-recreate", containerServer); err != nil {
+	if _, err := CmdRealtime("docker-compose","-p",composeName, "-f", dockercompose, "up", "-d", "--no-recreate", containerServer); err != nil {
 		return err
 	}
 	if err := d.DailMysql(port, ip); err != nil {
