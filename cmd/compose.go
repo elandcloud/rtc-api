@@ -315,7 +315,10 @@ func (Compose) getServiceServer(serviceName string) string {
 func (d *Compose) dependsOn(depends []string) []string {
 	newDeps := make([]string, 0)
 	for _, dep := range depends {
-		newDeps = append(newDeps, d.getServiceServer(dep))
+		newDep:=d.getServiceServer(dep)
+		if ContainString(newDeps,newDep) == false{
+			newDeps = append(newDeps,newDep)
+		}
 	}
 	return newDeps
 }
