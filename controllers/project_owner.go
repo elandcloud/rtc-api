@@ -8,7 +8,8 @@ import (
 type ProjectOwner struct {
 }
 
-func (d ProjectOwner) Reload(ctx context.Context, p *models.Project) error {
+func (d ProjectOwner) Reload(ctx context.Context, p *models.Project,
+	imageAccount []models.ImageAccount, producer *models.Project, consumer *models.Project) error {
 	p.Owner.IsKafka = d.ShouldKafka(p)
 	p.Owner.IsMysql = d.ShouldDb(p, MYSQL)
 	p.Owner.IsSqlServer = d.ShouldDb(p, SQLSERVER)
@@ -16,36 +17,20 @@ func (d ProjectOwner) Reload(ctx context.Context, p *models.Project) error {
 	d.SetStreams(p)
 	p.Owner.IsStream = d.ShouldStream(p.Owner.StreamNames)
 	list := d.Database(p)
-	if err := d.SetEvent(ctx, p, list); err != nil {
-		return err
-	}
+	d.SetEvent(ctx, p, list, producer, consumer)
 
 	p.Owner.Databases = list
 	p.Owner.DbTypes = d.DatabaseTypes(list)
 	d.SetNames(p)
 	d.SetDependLoop(p)
-	if err := d.SetImageAccount(ctx, p); err != nil {
-		return err
-	}
+	p.Owner.ImageAccounts = imageAccount
 	return nil
 }
-func (d ProjectOwner) SetImageAccount(ctx context.Context, p *models.Project) error {
-	var err error
-	p.Owner.ImageAccounts, err = models.ImageAccount{}.GetAll(ctx)
-	return err
-}
 
-func (d ProjectOwner) SetEvent(ctx context.Context, p *models.Project, rawDatabases map[string][]models.DatabaseDto) error {
+func (d ProjectOwner) SetEvent(ctx context.Context, p *models.Project, rawDatabases map[string][]models.DatabaseDto, producer *models.Project, consumer *models.Project) {
 	if p.Owner.IsStream {
-		var err error
-		_, p.Owner.EventProducer, err = models.Project{}.GetByName(ctx, "event-broker-kafka")
-		if err != nil {
-			return err
-		}
-		_, p.Owner.EventConsumer, err = models.Project{}.GetByName(ctx, "event-kafka-consumer")
-		if err != nil {
-			return err
-		}
+		p.Owner.EventProducer = producer
+		p.Owner.EventConsumer = consumer
 		p.Owner.IsKafka = true
 		p.Owner.IsMysql = true
 		p.Owner.IsRedis = true
@@ -59,7 +44,6 @@ func (d ProjectOwner) SetEvent(ctx context.Context, p *models.Project, rawDataba
 			}
 		}
 	}
-	return nil
 }
 func (d ProjectOwner) removeTenant(dbDtos []models.DatabaseDto) []string {
 	dbNames := make([]string, 0)

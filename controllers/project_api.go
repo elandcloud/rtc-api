@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"net/http"
 	"nomni/utils/api"
 	"rtc-api/models"
@@ -57,8 +58,27 @@ func (d ProjectApiController) GetAll(c echo.Context) error {
 	if len(items) == 0 {
 		return ReturnApiFail(c, http.StatusBadRequest, api.RtcServiceHasNotFoundError())
 	}
+	var depth int
+	if len(c.QueryParam("depth")) != 0 {
+		depthInt64, err := strconv.ParseInt(c.QueryParam("depth"), 10, 64)
+		if err != nil {
+			return ReturnApiFail(c, http.StatusBadRequest, api.InvalidParamError("depth", c.QueryParam("depth"), err))
+		}
+		depth = int(depthInt64)
+	}
+	var projects []*models.Project
+	if depth != 0 {
+		projects, err = models.Project{}.GetAllReal(c.Request().Context())
+		if err != nil {
+			return ReturnApiFail(c, http.StatusInternalServerError, err)
+		}
+	}
+	imageAccount, producer, consumer, err := d.extraInfo(c.Request().Context())
+	if err != nil {
+		return ReturnApiFail(c, http.StatusInternalServerError, err)
+	}
 	for k := range items {
-		if status, err := d.getWithChild(c, items[k]); err != nil {
+		if status, err := d.getAllWithChild(c, items[k], depth, projects, imageAccount, producer, consumer); err != nil {
 			return ReturnApiFail(c, status, err)
 		}
 	}
@@ -262,11 +282,41 @@ func (d ProjectApiController) getWithChild(c echo.Context, project *models.Proje
 		}
 		d.loopGet(c, project, items, depth)
 	}
-	if err := (ProjectOwner{}).Reload(c.Request().Context(), project); err != nil {
+	imageAccount, producer, consumer, err := d.extraInfo(c.Request().Context())
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	if err := (ProjectOwner{}).Reload(c.Request().Context(), project, imageAccount, producer, consumer); err != nil {
 		return http.StatusInternalServerError, err
 	}
 
 	return http.StatusOK, nil
+}
+func (d ProjectApiController) getAllWithChild(c echo.Context, project *models.Project, depth int, items []*models.Project, imageAccount []models.ImageAccount, producer *models.Project, consumer *models.Project) (int, error) {
+
+	if depth != 0 {
+		d.loopGet(c, project, items, depth)
+	}
+	if err := (ProjectOwner{}).Reload(c.Request().Context(), project, imageAccount, producer, consumer); err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	return http.StatusOK, nil
+}
+func (d ProjectApiController) extraInfo(ctx context.Context) ([]models.ImageAccount, *models.Project, *models.Project, error) {
+	imageAccount, err := models.ImageAccount{}.GetAll(ctx)
+	if err != nil {
+		return nil, nil,nil, err
+	}
+	_, producer, err := models.Project{}.GetByName(ctx, "event-broker-kafka")
+	if err != nil {
+		return nil, nil,nil, err
+	}
+	_, consumer, err := models.Project{}.GetByName(ctx, "event-kafka-consumer")
+	if err != nil {
+		return nil, nil,nil, err
+	}
+	return imageAccount, producer, consumer, nil
 }
 func (d ProjectApiController) Delete(c echo.Context) error {
 	idStr := c.Param("id")
