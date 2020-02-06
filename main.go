@@ -20,9 +20,12 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"github.com/pangpanglabs/echoswagger"
+	echopprof "github.com/sevenNt/echo-pprof"
 	"github.com/sirupsen/logrus"
 )
+
 var Version string
+
 func main() {
 	isApi := os.Getenv("IS_RTC_API")
 	if isApi != "Y" {
@@ -64,8 +67,8 @@ func main() {
 	controllers.NamespaceApiController{}.Init(r.Group("namespaces", "v1/namespaces"))
 	controllers.TenantApiController{}.Init(r.Group("tenants", "v1/tenants"))
 	controllers.FrontApiController{}.Init(r.Group("fronts", "v1/fronts"))
-
-	e.Pre(middleware.RemoveTrailingSlash())
+	echopprof.Wrap(e)
+	// e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
