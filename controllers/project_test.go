@@ -265,3 +265,94 @@ func TestCmdBiz(t *testing.T) {
 		test.Equals(t, "", resp.Error.Error())
 	})
 }
+
+func TestCirculerReference(t *testing.T) {
+	initDb()
+	expProject1 := models.Project{
+		Service:    "circuler-api1",
+		Namespace:  "",
+		TenantName: "",
+
+		SubIds: nil,
+	}
+	subProject2 := models.Project{
+		Service:    "circuler-api2",
+		Namespace:  "",
+		TenantName: "",
+		SubIds:     []int{3},
+	}
+	subProject3 := models.Project{
+		Service:    "circuler-api3",
+		Namespace:  "",
+		TenantName: "",
+		SubIds:     nil,
+	}
+	subProject4 := models.Project{
+		Service:    "circuler-api4",
+		Namespace:  "",
+		TenantName: "",
+		SubIds:     []int{1},
+	}
+	expProject1.Name = models.Project{}.GetName(expProject1.TenantName, expProject1.Namespace, expProject1.Service)
+	newProjects := []models.Project{
+		expProject1,
+		subProject2,
+		subProject3,
+		subProject4,
+	}
+	for i, p := range newProjects {
+		pb, _ := json.Marshal(p)
+		t.Run(fmt.Sprint("Create#", i+1), func(t *testing.T) {
+			expCreateProject := p
+			expCreateProject.Id = i + 1
+			expCreateProject.Name = models.Project{}.GetName(expCreateProject.TenantName, expCreateProject.Namespace, expCreateProject.Service)
+
+			req := httptest.NewRequest(echo.POST, "/v1/projects", bytes.NewReader(pb))
+			rec := httptest.NewRecorder()
+			test.Ok(t, handleWithFilter(controllers.ProjectApiController{}.Create, echoApp.NewContext(req, rec)))
+			test.Equals(t, http.StatusCreated, rec.Code)
+			var resp struct {
+				Success bool           `json:"success"`
+				Result  models.Project `json:"result"`
+			}
+			test.Ok(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+			test.Equals(t, true, resp.Success)
+			test.Equals(t, expCreateProject, resp.Result)
+		})
+	}
+	t.Run("no circuler dependence#1", func(t *testing.T) {
+		url := fmt.Sprintf("/v1/projects/isCirculerReference?rawId=%v&subIds=%v", "1", "2,3")
+		req := httptest.NewRequest(echo.GET, url, nil)
+		rec := httptest.NewRecorder()
+		c := echoApp.NewContext(req, rec)
+		test.Ok(t, handleWithFilter(controllers.ProjectApiController{}.IsCirculerReference, c))
+		test.Equals(t, http.StatusOK, rec.Code)
+		var resp struct {
+			Result  bool      `json:"result"`
+			Success bool      `json:"success"`
+			Error   api.Error `json:"error"`
+		}
+		test.Ok(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		test.Equals(t, true, resp.Success)
+		test.Equals(t, "", resp.Error.Error())
+		test.Equals(t, false, resp.Result)
+	})
+	t.Run("exist circuler dependence#2", func(t *testing.T) {
+		url := fmt.Sprintf("/v1/projects/isCirculerReference?rawId=%v&subIds=%v", "1", "4")
+		req := httptest.NewRequest(echo.GET, url, nil)
+		rec := httptest.NewRecorder()
+		c := echoApp.NewContext(req, rec)
+		test.Ok(t, handleWithFilter(controllers.ProjectApiController{}.IsCirculerReference, c))
+		test.Equals(t, http.StatusOK, rec.Code)
+		var resp struct {
+			Result  bool      `json:"result"`
+			Success bool      `json:"success"`
+			Error   api.Error `json:"error"`
+		}
+		test.Ok(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		test.Equals(t, true, resp.Success)
+		test.Equals(t, "", resp.Error.Error())
+		test.Equals(t, true, resp.Result)
+	})
+
+}

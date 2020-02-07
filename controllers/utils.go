@@ -41,12 +41,22 @@ func Unique(params []string) (list []string) {
 	return
 }
 
-
-func ContainsString(bs []string,b string) bool{
+func ContainsString(bs []string, b string) bool {
 	for _, v := range bs {
-		if v ==b{
+		if v == b {
 			return true
 		}
 	}
 	return false
+}
+
+func BoolPoint(flag bool) *bool {
+	return func(b bool) *bool { return &b }(flag)
+}
+func BoolPointCheck(b *bool) (flag bool) {
+	if b == nil || *b == false {
+		return
+	}
+	flag = true
+	return
 }
