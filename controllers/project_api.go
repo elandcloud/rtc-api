@@ -181,16 +181,20 @@ func (ProjectApiController) Filter(ids []int, projects []*models.Project) []*mod
 	return pFilters
 }
 
-func (d ProjectApiController) loopGet(c echo.Context, project *models.Project, projects []*models.Project, depth int) {
+func (d ProjectApiController) loopGet(c echo.Context, rawId int, project *models.Project, projects []*models.Project, depth int) {
 	if len(project.SubIds) != 0 {
+		if models.ContainInt(project.SubIds, rawId) { //To prevent circular references
+			return
+		}
 		subProjects := d.Filter(project.SubIds, projects)
 		project.Children = subProjects
 		if depth == 1 {
 			return
 		}
+
 		for k, v := range project.Children {
 			if len(v.SubIds) != 0 {
-				d.loopGet(c, project.Children[k], projects, depth)
+				d.loopGet(c, rawId, project.Children[k], projects, depth)
 			}
 		}
 	}
@@ -280,7 +284,7 @@ func (d ProjectApiController) getWithChild(c echo.Context, project *models.Proje
 		if err != nil {
 			return http.StatusInternalServerError, err
 		}
-		d.loopGet(c, project, items, depth)
+		d.loopGet(c, project.Id, project, items, depth)
 	}
 	imageAccount, producer, consumer, err := d.extraInfo(c.Request().Context())
 	if err != nil {
@@ -295,7 +299,7 @@ func (d ProjectApiController) getWithChild(c echo.Context, project *models.Proje
 func (d ProjectApiController) getAllWithChild(c echo.Context, project *models.Project, depth int, items []*models.Project, imageAccount []models.ImageAccount, producer *models.Project, consumer *models.Project) (int, error) {
 
 	if depth != 0 {
-		d.loopGet(c, project, items, depth)
+		d.loopGet(c, project.Id, project, items, depth)
 	}
 	if err := (ProjectOwner{}).Reload(c.Request().Context(), project, imageAccount, producer, consumer); err != nil {
 		return http.StatusInternalServerError, err
@@ -306,15 +310,15 @@ func (d ProjectApiController) getAllWithChild(c echo.Context, project *models.Pr
 func (d ProjectApiController) extraInfo(ctx context.Context) ([]models.ImageAccount, *models.Project, *models.Project, error) {
 	imageAccount, err := models.ImageAccount{}.GetAll(ctx)
 	if err != nil {
-		return nil, nil,nil, err
+		return nil, nil, nil, err
 	}
 	_, producer, err := models.Project{}.GetByName(ctx, "event-broker-kafka")
 	if err != nil {
-		return nil, nil,nil, err
+		return nil, nil, nil, err
 	}
 	_, consumer, err := models.Project{}.GetByName(ctx, "event-kafka-consumer")
 	if err != nil {
-		return nil, nil,nil, err
+		return nil, nil, nil, err
 	}
 	return imageAccount, producer, consumer, nil
 }
