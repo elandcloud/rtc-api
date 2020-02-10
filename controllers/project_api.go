@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"nomni/utils/api"
 	"rtc-api/models"
@@ -24,6 +26,9 @@ func (d ProjectApiController) Init(g echoswagger.ApiGroup) {
 		AddParamQuery("", "simple", "true", false)
 	g.GET("/filterDbNames", d.GetDeleteDbNames).
 		AddParamQueryNested(DatabaseDto{})
+	g.GET("/isCirculerReference", d.IsCirculerReference).
+		AddParamQuery("", "rawId", "1", true).
+		AddParamQuery("", "subIds", "2,3,4", true)
 	g.GET("/:id", d.GetById).
 		AddParamPath("", "id", "1").
 		AddParamQuery("", "depth", "-1:all child,0:no child,1: 1 child", false)
@@ -34,6 +39,73 @@ func (d ProjectApiController) Init(g echoswagger.ApiGroup) {
 		AddParamBody(ProjectDto{}, "project", "update project", true)
 	g.DELETE("/:id", d.Delete).
 		AddParamPath("", "id", "14")
+}
+func (d ProjectApiController) IsCirculerReference(c echo.Context) error {
+	var v struct {
+		RawId  int    `query:"rawId"`
+		SubIds string `query:"subIds"`
+	}
+	if err := c.Bind(&v); err != nil {
+		return ReturnApiFail(c, http.StatusBadRequest, api.ParameterParsingError(err))
+	}
+	if v.RawId == 0 { // 1.add
+		return ReturnApiSucc(c, http.StatusOK, false)
+	}
+
+	//2.edit
+	if len(v.SubIds) ==0{
+		return ReturnApiSucc(c, http.StatusOK, false)
+	}
+	projects, err := models.Project{}.GetAllReal(c.Request().Context())
+	if err != nil {
+		return ReturnApiFail(c, http.StatusInternalServerError, err)
+	}
+	p := d.ProjectById(v.RawId, projects)
+	if p == nil {
+		return ReturnApiFail(c, http.StatusBadRequest, api.InvalidParamError("rawId", fmt.Sprint(v.RawId), errors.New("not found")))
+	}
+
+	ids, err := d.strToInts(v.SubIds)
+	if err != nil {
+		return ReturnApiFail(c, http.StatusBadRequest, api.InvalidParamError("subIds", fmt.Sprint(v.SubIds), err))
+	}
+	ps := d.ProjectByIds(ids, projects)
+	boolDto := &BoolDto{}
+	for _, project := range ps {
+		d.isCirculerReference(p.Id, project, projects, boolDto)
+		if boolDto.Flag == true {
+			return ReturnApiSucc(c, http.StatusOK, true)
+		}
+	}
+	return ReturnApiSucc(c, http.StatusOK, false)
+}
+
+func (d ProjectApiController) strToInts(str string) ([]int, error) {
+	idStrs := strings.Split(str, ",")
+	ids := make([]int, 0)
+	for _, idStr := range idStrs {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, int(id))
+	}
+	return ids, nil
+}
+
+func (d ProjectApiController) isCirculerReference(rawId int, project *models.Project, projects []*models.Project, boolDto *BoolDto) {
+	if len(project.SubIds) != 0 {
+		if models.ContainInt(project.SubIds, rawId) { //To prevent circular references
+			boolDto.Flag = true
+			return
+		}
+		subProjects := d.ProjectByIds(project.SubIds, projects)
+		for k, v := range subProjects {
+			if len(v.SubIds) != 0 {
+				d.isCirculerReference(rawId, subProjects[k], projects, boolDto)
+			}
+		}
+	}
 }
 
 func (d ProjectApiController) GetAll(c echo.Context) error {
@@ -169,11 +241,39 @@ func (d ProjectApiController) GetByName(c echo.Context) error {
 	}
 	return ReturnApiSucc(c, http.StatusOK, project)
 }
-func (ProjectApiController) Filter(ids []int, projects []*models.Project) []*models.Project {
+func (ProjectApiController) ProjectByIds(ids []int, projects []*models.Project) []*models.Project {
 	pFilters := make([]*models.Project, 0)
 	for _, id := range ids {
 		for _, p := range projects {
 			if id == p.Id {
+				pFilters = append(pFilters, p)
+			}
+		}
+	}
+	return pFilters
+}
+func (ProjectApiController) ProjectById(id int, projects []*models.Project) *models.Project {
+	for _, p := range projects {
+		if id == p.Id {
+			return p
+		}
+	}
+	return nil
+}
+func (ProjectApiController) ProjectByName(name string, projects []*models.Project) *models.Project {
+	for _, p := range projects {
+		if name == p.Name {
+			return p
+		}
+	}
+	return nil
+}
+
+func (ProjectApiController) ProjectByNames(names []string, projects []*models.Project) []*models.Project {
+	pFilters := make([]*models.Project, 0)
+	for _, name := range names {
+		for _, p := range projects {
+			if name == p.Name {
 				pFilters = append(pFilters, p)
 			}
 		}
@@ -186,7 +286,7 @@ func (d ProjectApiController) loopGet(c echo.Context, rawId int, project *models
 		if models.ContainInt(project.SubIds, rawId) { //To prevent circular references
 			return
 		}
-		subProjects := d.Filter(project.SubIds, projects)
+		subProjects := d.ProjectByIds(project.SubIds, projects)
 		project.Children = subProjects
 		if depth == 1 {
 			return

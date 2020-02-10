@@ -38,3 +38,7 @@ type DatabaseDto struct {
 	Namespace  string `json:"namespace" query:"namespace"`
 	DbNames    string `json:"dbNames" query:"dbNames" validate:"required"`
 }
+
+type BoolDto struct {
+	Flag bool
+}

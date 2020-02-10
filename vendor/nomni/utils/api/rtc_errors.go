@@ -21,3 +21,7 @@ func RtcServiceHasNotFoundError() Error {
 func RtcServiceNotAllowDeleteError(ids []int) Error {
 	return newError(81009, fmt.Sprintf("删除失败，有微服务 %v 依赖于这个服务.", ids), nil)
 }
+
+func RtcServiceExistCirculerDependencyError() Error {
+	return newError(81010, "微服务之间存在循环依赖.", nil)
+}

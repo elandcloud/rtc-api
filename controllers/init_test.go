@@ -20,6 +20,7 @@ import (
 var (
 	echoApp          *echo.Echo
 	handleWithFilter func(handlerFunc echo.HandlerFunc, c echo.Context) error
+	ctx              context.Context
 )
 
 func TestMain(m *testing.M) {
@@ -30,22 +31,12 @@ func TestMain(m *testing.M) {
 }
 
 func enterTest() *xorm.Engine {
-	configutil.SetConfigPath("../")
-	c := config.Init(os.Getenv("APP_ENV"))
-	xormEngine, err := xorm.NewEngine(c.Database.Driver, c.Database.Connection)
-	if err != nil {
-		panic(err)
-	}
-	if err = models.DropTables(xormEngine); err != nil {
-		panic(err)
-	}
-	if err = models.InitTable(xormEngine); err != nil {
-		panic(err)
-	}
 
+	xormEngine := initDb()
 	echoApp = echo.New()
 	echoApp.Validator = validator.New()
 	db := echomiddleware.ContextDB("test", xormEngine, echomiddleware.KafkaConfig{})
+	ctx = context.WithValue(context.Background(), echomiddleware.ContextDBName, xormEngine)
 	behaviorlogger := func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			req := c.Request()
@@ -73,4 +64,20 @@ func exitTest(db *xorm.Engine) {
 	// if err := models.DropTables(db); err != nil {
 	// 	panic(err)
 	// }
+}
+
+func initDb() *xorm.Engine {
+	configutil.SetConfigPath("../")
+	c := config.Init(os.Getenv("APP_ENV"))
+	xormEngine, err := xorm.NewEngine(c.Database.Driver, c.Database.Connection)
+	if err != nil {
+		panic(err)
+	}
+	if err = models.DropTables(xormEngine); err != nil {
+		panic(err)
+	}
+	if err = models.InitTable(xormEngine); err != nil {
+		panic(err)
+	}
+	return xormEngine
 }
