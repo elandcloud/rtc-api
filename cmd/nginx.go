@@ -36,8 +36,10 @@ func (d Nginx) Write(p *Project, prefix string) (err error) {
 		return
 	}
 	var location string
-	location += d.Location(p.Name, p.Setting.Ports[0], prefix)
-	for _, sp := range p.Children {
+	if p.ExcludeCurrent == false{
+		location += d.Location(p.Name, p.Setting.Ports[0], prefix)
+	}
+	for _, sp := range p.Children { //logic is ok,When testing, only the child nodes are needed, and no grandchildren are needed.
 		if len(p.Setting.Ports) == 0 {
 			err = fmt.Errorf("port is required,project:%v", sp.Name)
 			return

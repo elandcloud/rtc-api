@@ -136,7 +136,9 @@ func (d *Compose) SetApp(viper *viper.Viper, project *Project, imageEnv, prefix 
 func (d *Compose) SetAppLoop(viper *viper.Viper, projects []*Project, imageEnv, prefix string) {
 	for _, project := range projects {
 		project.DependsOn = d.dependsOn(project.DependsOn)
-		d.appCompose(viper, project, imageEnv, prefix)
+		if project.ExcludeCurrent == false {
+			d.appCompose(viper, project, imageEnv, prefix)
+		}
 		if len(project.Children) > 0 {
 			d.SetAppLoop(viper, project.Children, imageEnv, prefix)
 		}
@@ -290,13 +292,11 @@ func (d *Compose) setNginx(viper *viper.Viper, project *Project, port string, re
 
 	serviceName := "nginx"
 	servicePre := d.getServicePre(serviceName)
-	deps := []string{d.getServiceServer(project.Name)}
 
 	viper.Set(servicePre+".image", d.GetCommonImage("nginx:1.16", registryCommon))
 	viper.Set(servicePre+".container_name", d.getContainerName(serviceName, prefix))
 	viper.Set(servicePre+".ports", []string{port + ":" + d.InPort.Nginx})
 	viper.Set(servicePre+".restart", "always")
-	viper.Set(servicePre+".depends_on", deps)
 	viper.Set(servicePre+".volumes", []string{
 		"./nginx/default.conf:/etc/nginx/conf.d/default.conf",
 		"./nginx/html:/usr/share/nginx/html",
@@ -315,9 +315,9 @@ func (Compose) getServiceServer(serviceName string) string {
 func (d *Compose) dependsOn(depends []string) []string {
 	newDeps := make([]string, 0)
 	for _, dep := range depends {
-		newDep:=d.getServiceServer(dep)
-		if ContainString(newDeps,newDep) == false{
-			newDeps = append(newDeps,newDep)
+		newDep := d.getServiceServer(dep)
+		if ContainString(newDeps, newDep) == false {
+			newDeps = append(newDeps, newDep)
 		}
 	}
 	return newDeps
@@ -541,9 +541,9 @@ func (d *Compose) dailKafka(port, ip string) (err error) {
 
 // simple
 
-func (d *Compose) checkMysqlSimple(dockercompose, port, ip, prefix,composeName string) error {
+func (d *Compose) checkMysqlSimple(dockercompose, port, ip, prefix, composeName string) error {
 	containerServer := d.getServiceServerSimple(MYSQL.String(), prefix)
-	if _, err := CmdRealtime("docker-compose","-p",composeName, "-f", dockercompose, "up", "-d", "--no-recreate", containerServer); err != nil {
+	if _, err := CmdRealtime("docker-compose", "-p", composeName, "-f", dockercompose, "up", "-d", "--no-recreate", containerServer); err != nil {
 		return err
 	}
 	if err := d.DailMysql(port, ip); err != nil {
