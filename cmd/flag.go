@@ -25,15 +25,16 @@ type Flag struct {
 	IntegrationTest *bool
 	DbNet           *string
 	ComposeName     *string
+	IncludeCurrent  *bool
 
-	DockerNoLog   *bool
-	DockerNoLogin *bool
-	DockerNoPull  *bool
-	DockerNoDown  *bool
-	DockerNoCheck *bool
-	DockerHostIp  *string
-	DockerImage   *string
-	DockerWorkDir *string
+	DockerNoLog        *bool
+	DockerNoLogin      *bool
+	DockerNoPull       *bool
+	DockerNoDown       *bool
+	DockerNoCheck      *bool
+	DockerHostIp       *string
+	DockerCurrentImage *string
+	DockerWorkDir      *string
 
 	DockerMysqlPort     *string
 	DockerRedisPort     *string
@@ -84,6 +85,7 @@ func (d Flag) Init(version string) (isContinue bool, serviceName *string, flag *
 				log.Println(err)
 				panic(err)
 			}
+			log.Println("log done")
 		}
 	}
 	return
@@ -95,7 +97,7 @@ func (d Flag) showList(q, jwtToken string) error {
 		return err
 	}
 	if len(names) == 0 {
-		return errors.New("no data has found.")
+		return errors.New("no data has found")
 	}
 	for _, v := range names {
 		fmt.Println(v)
@@ -233,6 +235,7 @@ func (d Flag) configureRunCommand(app *kingpin.Application) (serviceName *string
 	4.http: load database file by http/ip.`).String(),
 		ComposeName: run.Flag("compose-name", `
 	1.Specify an alternate compose name.(default: temp)`).String(),
+		IncludeCurrent: run.Flag("include-current", "You can include current project.").Bool(),
 
 		DockerNoLogin: run.Flag("docker-no-login", "You can ignore login step.").Bool(),
 		DockerNoPull:  run.Flag("docker-no-pull", "You can ignore pull images step.").Bool(),
@@ -242,8 +245,8 @@ func (d Flag) configureRunCommand(app *kingpin.Application) (serviceName *string
 		DockerHostIp: run.Flag("docker-host-ip", `
 	1.ip(default): auto get ip.
 	2.You can specify your host ip.`).String(),
-		DockerImage:   run.Flag("docker-image", `You can specify current service image.`).String(),
-		DockerWorkDir: run.Flag("docker-work-dir", `You can specify rtc temp directory.`).Short('w').String(),
+		DockerCurrentImage: run.Flag("docker-current-image", `You can specify current service image.`).String(),
+		DockerWorkDir:      run.Flag("docker-work-dir", `You can specify rtc temp directory.`).Short('w').String(),
 
 		DockerMysqlPort:     run.Flag("docker-mysql-port", "You can change default mysql port.").Default(outPort.Mysql).String(),
 		DockerRedisPort:     run.Flag("docker-redis-port", "You can change default redis port.").Default(outPort.Redis).String(),
