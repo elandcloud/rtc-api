@@ -19,9 +19,10 @@ type Project struct {
 	SubIds  []int       `json:"subIds"` //subIds
 	Setting *SettingDto `json:"setting"`
 
-	Children  []*Project      `json:"children"`
-	DependsOn []string        `json:"dependsOn"`
-	Owner     ProjectOwnerDto `json:"owner"`
+	Children       []*Project      `json:"children"`
+	DependsOn      []string        `json:"dependsOn"`
+	Owner          ProjectOwnerDto `json:"owner"`
+	ExcludeCurrent bool            `json:"excludeCurrent"`
 }
 
 type ProjectOwnerDto struct {
@@ -106,7 +107,7 @@ func (d Project) GetServiceNames(q, jwtToken string) ([]string, error) {
 	return newList, nil
 }
 
-func (d Project) GetProject(serviceName, jwtToken, dockerImage string) (*Project, error) {
+func (d Project) GetProject(serviceName, jwtToken, dockerCurrentImage string, includeCurrent *bool) (*Project, error) {
 	urlStr := fmt.Sprintf("%v/v1/projects?name=%v&depth=-1", env.RtcApiUrl, serviceName)
 	var resp struct {
 		Success bool     `json:"success"`
@@ -119,8 +120,13 @@ func (d Project) GetProject(serviceName, jwtToken, dockerImage string) (*Project
 	if statusCode != http.StatusOK {
 		return nil, fmt.Errorf("http status exp:200,act:%v,url:%v", statusCode, urlStr)
 	}
-	if resp.Project != nil && len(dockerImage) != 0{
-		resp.Project.Setting.Image = dockerImage
+	if resp.Project != nil {
+		if len(dockerCurrentImage) != 0{
+			resp.Project.Setting.Image = dockerCurrentImage
+		}
+		if BoolPointCheck(includeCurrent) ==false{
+			resp.Project.ExcludeCurrent = true
+		}
 	}
 	return resp.Project, nil
 }

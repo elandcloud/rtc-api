@@ -19,7 +19,7 @@ func Start(version string) {
 		}
 		return
 	}
-	project, err := Project{}.GetProject(*serviceName, *flag.JwtToken, *flag.DockerImage)
+	project, err := Project{}.GetProject(*serviceName, *flag.JwtToken, *flag.DockerCurrentImage,flag.IncludeCurrent)
 	if err != nil {
 		Error(err)
 		panic(err)
